@@ -1,0 +1,72 @@
+version: 0.2
+
+env:
+  parameter-store:
+    ARTIFACTORY_USER: "/a205948/artifactory/user"
+    ARTIFACTORY_TOKEN: "/a205948/artifactory/token"
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+    commands:
+      - echo "Installing packages in the CI environment!"
+      - export PIP_EXTRA_INDEX_URL="https://${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN}@tr1.jfrog.io/tr1/api/pypi/pypi/simple"
+      - mkdir /opt/mqm
+      - export LD_LIBRARY_PATH="/opt/mqm/lib64:$LD_LIBRARY_PATH"
+      - curl -f -u ${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN} "https://tr1.jfrog.io/artifactory/generic-local/gcs/ibm-mq/9.1.5.0/linux/9.1.5.0-IBM-MQC-Redist-LinuxX64.tar.gz" -o mq-lib.tar.gz
+      - tar -xzf mq-lib.tar.gz -C /opt/mqm
+      - pip install --upgrade pip
+      - pip install pipenv --user
+      - pip install awscli
+      - pip install aws-sam-cli==0.48.0
+      - pip install -r all_requirements.txt
+
+  pre_build:
+    commands:
+      # get ecr credentials and login
+      - echo Logging in to Amazon ECR...
+      - $(aws ecr get-login --no-include-email --region $REGION --registry-ids 689314585043)
+      # temp GPG error fix (https://github.com/aws/aws-codebuild-docker-images/issues/419)
+      - curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+      - apt-get update -y
+      - apt-get install jq -y
+      - echo "[+] Running tests..."
+      - python -m pytest tests/unit -v
+      - python -m pytest tests/integration -v
+
+  build:
+    commands:
+      - echo "[+] Starting the build"
+      #
+      # build and tag image
+      #
+      - DATE=`date "+%Y%m%d%H%M%S"`
+      - REPO_NAME=a$ASSET_ID
+      - echo "Building the Docker image..."
+      - ACCOUNT_ID="689314585043"
+      - SHAID=`jq '.["body-json"].checkout_sha' .webhook.json | cut -c 2-8`
+      - docker build --build-arg ARTIFACTORY_USER=$ARTIFACTORY_USER --build-arg ARTIFACTORY_TOKEN=$ARTIFACTORY_TOKEN . --tag $REPO_NAME:$MICROSERVICE_NAME-$DATE
+      - docker tag $REPO_NAME:$MICROSERVICE_NAME-$DATE $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:$MICROSERVICE_NAME-$DATE
+      - chmod 777 ./sam_full_build.sh
+      - ./sam_full_build.sh
+      - sam package --s3-bucket a205813-contentacquisition-pagemonitor-source-use1 --output-template-file templates/packaged-sam-template.yaml
+
+  post_build:
+    commands:
+      # upload new image to ecr
+      - echo "Pushing the Docker image..."
+      - docker push $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:$MICROSERVICE_NAME-$DATE
+      #write imageuri file so this particular build can be used later in the pipeline
+      - printf "%s" $ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:$MICROSERVICE_NAME-$DATE > imageuri
+      - ls -la
+
+artifacts:
+  files:
+    - "config/**/*"
+    - "templates/**/*"
+    - "response_templates/**/*"
+    - "imageuri"
+    - "variables.yaml"
+    - "hooks/**/*"
+

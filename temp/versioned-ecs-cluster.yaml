@@ -1,0 +1,44 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Deploy an ECS Cluster'
+Parameters:
+  FinancialIdentifier:
+    Description: 'tr:financial-identifier'
+    Type: String
+  AssetInsightId:
+    Description: 'tr:application-asset-insight-id'
+    Type: String
+  ResourceOwner:
+    Description: 'tr:resource-owner'
+    Type: String
+  EnvironmentType:
+    Description: 'tr:environment-type'
+    Type: String
+  Version:
+    Type: Number
+  MicroserviceName:
+    Type: String
+  Env:
+    Type: String
+
+Resources:
+
+  ECSCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: !Sub a${AssetInsightId}-${MicroserviceName}-${Env}-v${Version}
+      Tags:
+        - Key: 'tr:environment-type'
+          Value: !Ref EnvironmentType
+        - Key: 'tr:financial-identifier'
+          Value: !Ref FinancialIdentifier
+        - Key: 'tr:application-asset-insight-id'
+          Value: !Ref AssetInsightId
+        - Key: 'tr:resource-owner'
+          Value: !Ref ResourceOwner
+        - Key: tr:service-name
+          Value: !Ref 'MicroserviceName'
+
+Outputs:
+  ClusterName:
+    Description: 'Name of ECS cluster'
+    Value: !Ref ECSCluster

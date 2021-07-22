@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: SAM Template for gcs-cas_page-monitor-service.
+Parameters:
+  EnvironmentFullName:
+    Description: Environment full name
+    Type: String
+    Default: DEVELOPMENT
+  Environment:
+    Description: Environment short name
+    Type: String
+  AssetInsightId:
+    Description: Asset insight Id
+    Type: String
+    Default: 205813
+  Region:
+    Description: Region name
+    Type: String
+    Default: use1
+  AccountId:
+    Description: Account Identifier
+    Type: String
+    Default: 732776733977
+  ResourceOwner:
+    Description: Resource Owner Email
+    Type: String
+  FinancialIdentifier:
+    Description: FinancialIdentifier
+    Type: String
+    Default: 66497
+  ServiceName:
+    Description: ServiceName
+    Type: String
+    Default: pagemonitor
+  ValidOriginsList:
+    Type: String
+    Default: http://localhost:3000,https://localhost:3000,https://contentconsole-ci.thomsonreuters.com
+    Description: List of valid origins
+  GcsNetworksIps:
+    Type: CommaDelimitedList
+    Default: '18.214.215.221/32,34.225.18.142/32,35.168.93.21/32'
+  WafTrWebcorpWhitelistRuleId:
+    Type: String
+    Default: 'ceb3878f-2a1a-4b43-876b-6b31aec74afb'
+
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+  Function:
+    Timeout: 75
+    Runtime: python3.8
+    MemorySize: 128
+    PermissionsBoundary: !Sub arn:aws:iam::${AccountId}:policy/tr-permission-boundary
+    Tags:
+      tr:environment-type: !Ref EnvironmentFullName
+      tr:application-asset-insight-id: !Ref AssetInsightId
+      tr:financial-identifier: !Ref FinancialIdentifier
+      tr:resource-owner: !Ref ResourceOwner
+      tr:service-name: !Ref ServiceName
+    Environment:
+      Variables:
+        LAYER_PATH: /opt/python/lib/python3.8/site-packages/
+        ENVIRONMENT: !Ref Environment
+        SERVICE: 'ContentAcquisition'
+        MICROSERVICE: 'PageMonitor'
+
+Resources:
+  # =================== WAF ===================
+  PageMonitorACL:
+    Type: AWS::WAFRegional::WebACL
+    Properties:
+      Name: !Sub 'a${AssetInsightId}-pagemonitor-acl-${Environment}-${Region}'
+      DefaultAction:
+        Type: ALLOW
+      MetricName: PageMonitorACL
+      Rules:
+        - Action:
+            Type: ALLOW
+          Priority: 1
+          RuleId: !Ref WafTrWebcorpWhitelistRuleId
+        - Action:
+            Type: ALLOW
+          Priority: 2
+          RuleId: !Ref PageMonitorWAFIpSetRule
+
+  PageMonitorWAFIpSetRule:
+    Type: AWS::WAFRegional::Rule
+    Properties:
+      Name: !Sub 'a${AssetInsightId}-pagemonitor-ip-set-rule-${Environment}-${Region}'
+      MetricName: IPSetRule
+      Predicates:
+        - DataId: !Ref PageMonitorWAFIPSet
+          Negated: false
+          Type: IPMatch
+
+  PageMonitorWAFIPSet:
+    Type: AWS::WAFRegional::IPSet
+    Properties:
+      Name: !Sub 'a${AssetInsightId}-pagemonitor-ip-set-${Environment}-${Region}'
+      IPSetDescriptors:
+        - Type: 'IPV4'
+          Value: !Select [ '0', !Ref GcsNetworksIps ]
+        - Type: 'IPV4'
+          Value: !Select [ '1', !Ref GcsNetworksIps ]
+        - Type: 'IPV4'
+          Value: !Select [ '2', !Ref GcsNetworksIps ]
+
+  # =================== WAF ===================
+
+Outputs:
+

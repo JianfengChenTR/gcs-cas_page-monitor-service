@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SQS Queue'
+Parameters:
+  ServiceName:
+    Type: String
+  Environment:
+    Type: String
+  QueueNameSuffix:
+    Description: 'Suffix to add to the end of the queue name.'
+    Type: String
+  FinancialIdentifier:
+    Description: 'tr:financial-identifier'
+    Type: String
+  AssetInsightId:
+    Description: 'tr:application-asset-insight-id'
+    Type: String
+  ResourceOwner:
+    Description: 'tr:resource-owner'
+    Type: String
+  EnvironmentType:
+    Description: 'tr:environment-type'
+    Type: String
+  SQSDeadLetterQueueArn:
+    Description: 'The SQS Dead Letter Queue Arn'
+    Type: String
+    Default: ''
+  IsFifo:
+    Description: 'Set to true if this is a fifo queue'
+    Default: 'false'
+    Type: String
+    AllowedValues: ['true', 'false']
+  CreateDeadLetterQueue:
+    Description: 'Set to true to create a dead letter queue for this queue'
+    Default: 'false'
+    Type: String
+    AllowedValues: ['true', 'false']
+  MaxReceiveCount:
+    Description: 'Set to true to create a dead letter queue for this queue'
+    Default: '5'
+    Type: String
+  VisibilityTimeoutInSeconds:
+    Description: 'The Visibility timeout in seconds that gets initially set for messages'
+    Default: '300'
+    Type: String
+
+Conditions:
+  IsFifo: !Equals [ !Ref IsFifo, 'true' ]
+  CreateDLQ: !Equals [ !Ref CreateDeadLetterQueue, 'true' ]
+
+Resources:
+  SQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !If [IsFifo, !Sub 'a${AssetInsightId}-${ServiceName}-${QueueNameSuffix}-${Environment}.fifo', !Sub 'a${AssetInsightId}-${ServiceName}-${QueueNameSuffix}-${Environment}']
+      FifoQueue: !If [IsFifo, True, !Ref "AWS::NoValue"]
+      VisibilityTimeout: !Ref VisibilityTimeoutInSeconds
+      RedrivePolicy:
+        deadLetterTargetArn: !If [CreateDLQ, !GetAtt SQSDeadLetterQueue.Arn, !Sub '${SQSDeadLetterQueueArn}']
+        maxReceiveCount: !Ref MaxReceiveCount
+      Tags:
+      - Key: tr:application-asset-insight-id
+        Value: !Ref 'AssetInsightId'
+      - Key: tr:financial-identifier
+        Value: !Ref 'FinancialIdentifier'
+      - Key: tr:resource-owner
+        Value: !Ref 'ResourceOwner'
+      - Key: tr:environment-type
+        Value: !Ref 'EnvironmentType'
+      - Key: tr:service-name
+        Value: !Ref 'ServiceName'
+
+  SQSDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Condition: CreateDLQ
+    Properties:
+      QueueName: !If [IsFifo, !Sub 'a${AssetInsightId}-${ServiceName}-${QueueNameSuffix}_dlq-${Environment}.fifo', !Sub 'a${AssetInsightId}-${ServiceName}-${QueueNameSuffix}_dlq-${Environment}']
+      FifoQueue: !If [IsFifo, True, !Ref "AWS::NoValue"]
+      VisibilityTimeout: 300
+      Tags:
+        - Key: tr:application-asset-insight-id
+          Value: !Ref 'AssetInsightId'
+        - Key: tr:financial-identifier
+          Value: !Ref 'FinancialIdentifier'
+        - Key: tr:resource-owner
+          Value: !Ref 'ResourceOwner'
+        - Key: tr:environment-type
+          Value: !Ref 'EnvironmentType'
+        - Key: tr:service-name
+          Value: !Ref 'ServiceName'
+
+Outputs:
+  QueueName:
+    Description: 'Name of SQS Queue'
+    Value: !GetAtt SQSQueue.QueueName
+  QueueArn:
+    Description: 'SQS Queue Arn'
+    Value: !GetAtt SQSQueue.Arn
+  QueueUrl:
+    Description: 'SQS Queue Url'
+    Value: !Ref SQSQueue

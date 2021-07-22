@@ -1,0 +1,34 @@
+version: 0.2
+
+env:
+  parameter-store:
+    ARTIFACTORY_USER: "/a205948/artifactory/user"
+    ARTIFACTORY_TOKEN: "/a205948/artifactory/token"
+  git-credential-helper: yes
+
+phases:
+  install:
+    runtime-versions:
+      python: 3.8
+    commands:
+      - echo "Installing packages!"
+      - export PIP_EXTRA_INDEX_URL="https://${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN}@tr1.jfrog.io/tr1/api/pypi/pypi/simple"
+      - mkdir /opt/mqm
+      - export LD_LIBRARY_PATH="/opt/mqm/lib64:$LD_LIBRARY_PATH"
+      - curl -u ${ARTIFACTORY_USER}:${ARTIFACTORY_TOKEN} "https://tr1.jfrog.io/artifactory/generic-local/gcs/ibm-mq/9.1.5.0/linux/9.1.5.0-IBM-MQC-Redist-LinuxX64.tar.gz" -o mq-lib.tar.gz
+      - tar -xzf mq-lib.tar.gz -C /opt/mqm
+      - pip install --upgrade pip
+      - pip install pipenv --user
+      - pip install -r all_requirements.txt
+
+  pre_build:
+    commands:
+      - echo "[+] git merge origin/main..."
+      - git fetch origin
+      - git merge origin/main --no-commit --no-ff
+
+  build:
+    commands:
+      - echo "[+] Running tests..."
+      - python -m pytest tests/unit -v
+      - python -m pytest tests/integration -v

@@ -1,0 +1,91 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'S3 Resource bucket'
+Parameters:
+  ServiceName:
+    Type: String
+  Environment:
+    Type: String
+  Region:
+    Type: String
+  ContentType:
+    Type: String
+  FinancialIdentifier:
+    Description: 'tr:financial-identifier'
+    Type: String
+  AssetInsightId:
+    Description: 'tr:application-asset-insight-id'
+    Type: String
+  ResourceOwner:
+    Description: 'tr:resource-owner'
+    Type: String
+  EnvironmentType:
+    Description: 'tr:environment-type'
+    Type: String
+  KMSMasterKeyID:
+    Description: 'KMS key ID to use for the default encryption'
+    Type: String
+    Default: ""
+  ExpirationInDays:
+    Description: 'The number of days after creation that objects will be marked as deleted'
+    Type: String
+    Default: ""
+  NoncurrentVersionExpirationInDays:
+    Description: 'The number of days after a new version is created that previous versions will be permanently deleted'
+    Type: String
+    Default: ""
+
+Conditions:
+  IsEncryptionEnabled: !Not [!Equals [!Ref KMSMasterKeyID, ""]]
+  ExpirationInDaysEnabled: !Not [!Equals [!Ref ExpirationInDays, ""]]
+  NoncurrentVersionExpirationInDaysEnabled: !Not [!Equals [!Ref NoncurrentVersionExpirationInDays, ""]]
+
+Resources:
+  ResourceBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub a${AssetInsightId}-content-acquisition-${ContentType}-${Environment}-${Region}
+      BucketEncryption:
+        !If
+        - IsEncryptionEnabled
+        - ServerSideEncryptionConfiguration:
+            - ServerSideEncryptionByDefault:
+                KMSMasterKeyID: !Join ["",["arn:aws:kms:", !Sub '${AWS::Region}', ":", !Sub '${AWS::AccountId}', ":key/", !Ref KMSMasterKeyID]]
+                SSEAlgorithm: aws:kms
+        - !Ref "AWS::NoValue"
+      VersioningConfiguration:
+        Status: Enabled
+      Tags:
+        - Key: tr:application-asset-insight-id
+          Value: !Ref 'AssetInsightId'
+        - Key: tr:financial-identifier
+          Value: !Ref 'FinancialIdentifier'
+        - Key: tr:resource-owner
+          Value: !Ref 'ResourceOwner'
+        - Key: tr:environment-type
+          Value: !Ref 'EnvironmentType'
+        - Key: tr:service-name
+          Value: !Ref 'ServiceName'
+      LifecycleConfiguration:
+        Rules:
+          - Id: 'AbortIncompleteMultipartUploadAfter7Day'
+            Status: 'Enabled'
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - !If
+            - ExpirationInDaysEnabled
+            - Id: 'Mark as deleted current version after x days'
+              Status: 'Enabled'
+              ExpirationInDays: !Ref ExpirationInDays
+            - !Ref "AWS::NoValue"
+          - !If
+            - NoncurrentVersionExpirationInDaysEnabled
+            - Id: 'Permanently delete previous versions after x days'
+              Status: 'Enabled'
+              NoncurrentVersionExpirationInDays: !Ref NoncurrentVersionExpirationInDays
+            - !Ref "AWS::NoValue"
+
+Outputs:
+  BucketName:
+    Description: 'Name of S3 Resource Bucket'
+    Value: !Ref ResourceBucket

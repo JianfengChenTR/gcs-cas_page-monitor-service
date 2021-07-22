@@ -1,0 +1,32 @@
+template_path: templates/versioned-ecs-service.yaml
+
+parameters:
+  FinancialIdentifier: "{{ var.FinancialIdentifier }}"
+  AssetInsightId: "{{ var.AssetInsightId }}"
+  ResourceOwner: {{ var.ResourceOwner }}
+  VpcId: {{ var.ProdVpcId }}
+  EcsSubnets: {{ var.ProdPrivateSubnets }}
+  ContainerName: {{ var.MicroserviceName }}
+  EnvironmentType: {{ var.ProdEnvFullName }}
+  ClusterName: !stack_output versioned-ecs-cluster::ClusterName
+  DatadogLogGroup: !stack_output datadog-log-group::CloudWatchLogsGroup
+  EcsServiceLogGroup: !stack_output ecs-log-group::CloudWatchLogsGroup
+  ContainerCpuUnits: "1024"
+  ContainerDesiredCount: "2"
+  RepoName: {{ var.EcrName }}
+  ContainerMemory: "2GB"
+  ListenerRulePriority: "1"
+  ProjectStack: {{ var.ProjectStack }}
+  Environment: {{var.ProdEnvShortName}}
+  Version:
+  AccountId: "{{ var.ProdAccountId }}"
+  TaskRole: !stack_output task-role::RoleName
+  ContainerPort: "8080"
+
+stack_tags:
+  "tr:financial-identifier": "{{ var.FinancialIdentifier }}"
+  "tr:application-asset-insight-id": "{{ var.AssetInsightId }}"
+  "tr:environment-type": {{ var.ProdEnvFullName }}
+  "tr:resource-owner": {{ var.ResourceOwner }}
+  "tr:service-name": {{ var.MicroserviceName }}
+

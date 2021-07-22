@@ -1,0 +1,9 @@
+-r monitor/requirements.txt
+
+# tests
+-r tests/requirements.txt
+
+# local deploys
+packaging==16.8
+sceptre==2.3.0
+gcs-deploy==2.0.0

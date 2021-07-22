@@ -1,0 +1,225 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: "Application infrastructure (load balancers, security groups)"
+
+Metadata:
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      - Label: "Required Tags"
+        Parameters:
+          - "AssetInsightId"
+          - "FinancialIdentifier"
+          - "ResourceOwner"
+          - "EnvironmentType"
+
+Parameters:
+  CertArn:
+    Description: "SSL Certificate Arn"
+    Type: "String"
+  VpcId:
+    Description: "The ID of the VPC to run packer build in"
+    Type: "String"
+  Environment:
+    Description: "Project specific environment name (ie ci, qa, prod)"
+    Type: "String"
+    AllowedValues:
+      - "ci"
+      - "qa"
+      - "prod"
+  AlbSubnets:
+    Description: "Comma delimited list of subnets to use for the ALB"
+    Type: "String"
+  AssetInsightId:
+    Description: "Application Asset Insight Id"
+    Type: "String"
+  FinancialIdentifier:
+    Description: "Financial Identifier"
+    Type: "String"
+  ResourceOwner:
+    Description: "Resource Owner"
+    Type: "String"
+  HostedZoneName:
+    Type: "String"
+  Subdomain:
+    Type: "String"
+  WebCorpSecurityGroup:
+    Description: "WebCorp Security group for the load balancer"
+    Type: "String"
+  EnvironmentType:
+    AllowedValues:
+      - "PRODUCTION"
+      - "PRE-PRODUCTION"
+      - "INTEGRATION TESTING"
+      - "QUALITY ASSURANCE"
+      - "DEVELOPMENT"
+      - "LAB"
+    Description: "Environment Type"
+    Type: "String"
+  ServiceName:
+    Description: "Name of the microservice"
+    Type: "String"
+  ShortServiceName:
+    Description: "Short name of the microservice"
+    Type: "String"
+  Version:
+    Type: "Number"
+  ShortRegion:
+    Type: "String"
+  AcquisitionCidrBlocks:
+    Type: "CommaDelimitedList"
+
+Resources:
+
+  LoadBalancer:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name:
+        Fn::Sub: "a${AssetInsightId}-${ShortServiceName}-${Environment}-v${Version}"
+      LoadBalancerAttributes:
+        - Key: 'idle_timeout.timeout_seconds'
+          Value: '600'
+      SecurityGroups:
+        - !Ref "AppGroup"
+        - !Ref "WebCorpSecurityGroup"
+      Subnets:
+        Fn::Split:
+          - ","
+          - Ref: "AlbSubnets"
+      Tags:
+        - Key: "tr:application-asset-insight-id"
+          Value:
+            Ref: "AssetInsightId"
+        - Key: "tr:financial-identifier"
+          Value:
+            Ref: "FinancialIdentifier"
+        - Key: "tr:environment-type"
+          Value:
+            Ref: "EnvironmentType"
+        - Key: "tr:resource-owner"
+          Value:
+            Ref: "ResourceOwner"
+        - Key: tr:service-name
+          Value:
+            Ref: 'ServiceName'
+
+  HttpListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      Certificates:
+        - CertificateArn: !Ref CertArn
+      DefaultActions:
+        - TargetGroupArn:
+            Ref: "DefaultTargetGroup"
+          Type: "forward"
+      LoadBalancerArn:
+        Ref: "LoadBalancer"
+      Port: 443
+      Protocol: "HTTPS"
+
+  DefaultTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name:
+        Fn::Sub: "a${AssetInsightId}-${ShortServiceName}-${Environment}-v${Version}"
+      Port: 8080
+      Protocol: "HTTPS"
+      HealthCheckIntervalSeconds: 10
+      HealthCheckPath: "/actuator/health"
+      HealthCheckProtocol: HTTPS
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 2
+      Tags:
+        - Key: "tr:application-asset-insight-id"
+          Value:
+            Ref: "AssetInsightId"
+        - Key: "tr:financial-identifier"
+          Value:
+            Ref: "FinancialIdentifier"
+        - Key: "tr:environment-type"
+          Value:
+            Ref: "EnvironmentType"
+        - Key: "tr:resource-owner"
+          Value:
+            Ref: "ResourceOwner"
+        - Key: tr:service-name
+          Value:
+            Ref: 'ServiceName'
+      TargetType: ip
+      VpcId:
+        Ref: "VpcId"
+
+  AppGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Security group that is applied to infrastructure for application"
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Select [ "0", !Ref AcquisitionCidrBlocks ]
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Select [ "1", !Ref AcquisitionCidrBlocks ]
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Select [ "2", !Ref AcquisitionCidrBlocks ]
+      Tags:
+        - Key: "tr:application-asset-insight-id"
+          Value:
+            Ref: "AssetInsightId"
+        - Key: "tr:financial-identifier"
+          Value:
+            Ref: "FinancialIdentifier"
+        - Key: "tr:environment-type"
+          Value:
+            Ref: "EnvironmentType"
+        - Key: "tr:resource-owner"
+          Value:
+            Ref: "ResourceOwner"
+        - Key: tr:service-name
+          Value:
+            Ref: 'ServiceName'
+      VpcId:
+        Ref: "VpcId"
+
+  SelfAppGroupRule:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties:
+      Description: "Allows instances in group to talk to each other"
+      IpProtocol: -1
+      FromPort: -1
+      ToPort: -1
+      GroupId:
+        Ref: "AppGroup"
+      SourceSecurityGroupId:
+        Ref: "AppGroup"
+
+  DNSRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneName: !Join ['', [!Ref HostedZoneName, .]]
+      Name: !Join ['', [!Ref Subdomain, -v, !Ref Version, -, !Ref ShortRegion, ., !Ref HostedZoneName, .]]
+      Type: A
+      AliasTarget:
+        DNSName: !GetAtt LoadBalancer.DNSName
+        HostedZoneId: !GetAtt LoadBalancer.CanonicalHostedZoneID
+
+Outputs:
+  TargetGroup:
+    Description: "ELB Target Group"
+    Value: !Ref DefaultTargetGroup
+  HttpListener:
+    Description: "Listener for the ELB"
+    Value: !Ref HttpListener
+  SecurityGroup:
+    Description: "Security group for the load balancer"
+    Value: !Ref AppGroup
+  Endpoint:
+    Description: Endpoint
+    Value: !Join ['', ['https://', !Ref DNSRecord]]

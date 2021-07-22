@@ -1,0 +1,24 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Deploy an ECS Cluster'
+Parameters:
+  AssetInsightId:
+    Description: 'tr:application-asset-insight-id'
+    Type: String
+  Version:
+    Type: Number
+  MicroserviceName:
+    Type: String
+  Env:
+    Type: String
+
+Resources:
+  ECSCluster:
+    Type: 'AWS::ECS::Cluster'
+    Properties:
+      ClusterName: !Sub a${AssetInsightId}-${MicroserviceName}-${Env}-v${Version}
+
+Outputs:
+  ClusterName:
+    Description: 'Name of ECS cluster'
+    Value: !Ref ECSCluster
+

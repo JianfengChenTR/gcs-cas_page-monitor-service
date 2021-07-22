@@ -1,0 +1,74 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECS-task role'
+Parameters:
+  ProjectStack:
+    Type: String
+  ServiceName:
+    Type: String
+  Environment:
+    Type: String
+  FinancialIdentifier:
+    Description: 'tr:financial-identifier'
+    Type: String
+  AssetInsightId:
+    Description: 'tr:application-asset-insight-id'
+    Type: String
+  ResourceOwner:
+    Description: 'tr:resource-owner'
+    Type: String
+  EnvironmentType:
+    Description: 'tr:environment-type'
+    Type: String
+  RegionShortName:
+    Description: "Region abbreviation role is deployed to"
+    Type: String
+  Region:
+    Description: "AWS Region that this service is running in"
+    Type: String
+  AccountId:
+    Type: String
+  KMSMasterKeyID:
+    Description: 'KMS key ID that is used for default S3 encryption'
+    Type: String
+
+Conditions:
+  IsCi: !Equals [ !Ref Environment, 'ci' ]
+
+Resources:
+  TaskRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub a${AssetInsightId}-${ServiceName}-${ProjectStack}-${Environment}-ecs-task-${RegionShortName}
+      PermissionsBoundary: !Sub arn:aws:iam::${AccountId}:policy/tr-permission-boundary
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess'
+        - 'arn:aws:iam::aws:policy/AmazonSNSFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonSESFullAccess'
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+        - 'arn:aws:iam::aws:policy/SecretsManagerReadWrite'
+        - 'arn:aws:iam::aws:policy/CloudWatchLogsReadOnlyAccess'
+      Policies:
+        - PolicyName: 'CustomerManagedKeyForS3Encryption'
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "kms:Encrypt"
+                  - "kms:Decrypt"
+                  - "kms:ReEncrypt*"
+                  - "kms:GenerateDataKey*"
+                  - "kms:DescribeKey"
+                Resource: !Join ["",["arn:aws:kms:", !Ref Region, ":", !Ref AccountId, ":key/", !Ref KMSMasterKeyID]]
+Outputs:
+  Role:
+    Description: "Role"
+    Value: !Ref TaskRole

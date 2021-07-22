@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ECS-task role'
+Parameters:
+    ProjectStack:
+        Type: String
+    ServiceName:
+        Type: String
+    Environment:
+        Type: String
+    FinancialIdentifier:
+        Description: 'tr:financial-identifier'
+        Type: String
+    AssetInsightId:
+        Description: 'tr:application-asset-insight-id'
+        Type: String
+    ResourceOwner:
+        Description: 'tr:resource-owner'
+        Type: String
+    EnvironmentType:
+        Description: 'tr:environment-type'
+        Type: String
+    RegionShortName:
+        Description: "Region role is deployed to"
+        Type: String
+    AccountId:
+      Type: String
+
+Resources:
+  TaskRole:
+    Type: AWS::IAM::Role
+    DeletionPolicy: Retain
+    Properties:
+      RoleName: !Sub a${AssetInsightId}-${ServiceName}-${ProjectStack}-${Environment}-ecs-task-${RegionShortName}
+      PermissionsBoundary: !Sub arn:aws:iam::${AccountId}:policy/tr-permission-boundary
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/AmazonSQSFullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonS3FullAccess'
+        - 'arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess'
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+    
+
+Outputs:
+  RoleName:
+    Description: "Role Name"
+    Value: !Ref TaskRole

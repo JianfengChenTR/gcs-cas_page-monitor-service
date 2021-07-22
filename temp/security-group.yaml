@@ -1,0 +1,52 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'EFS volume'
+Parameters:
+  ProjectStack:
+    Type: String
+  MicroserviceName:
+    Type: String
+  Environment:
+    Type: String
+  FinancialIdentifier:
+    Description: 'tr:financial-identifier'
+    Type: String
+  AssetInsightId:
+    Description: 'tr:application-asset-insight-id'
+    Type: String
+  ResourceOwner:
+    Description: 'tr:resource-owner'
+    Type: String
+  EnvironmentType:
+    Description: 'tr:environment-type'
+    Type: String
+  RegionShortName:
+    Description: "Region abbreviation"
+    Type: String
+  VpcId:
+    Description: The VPC for the Security Group
+    Type: AWS::EC2::VPC::Id
+  SecurityGroupDescription:
+    Description: The description to use for the security group
+    Type: String
+
+Resources:
+  SecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupName: !Sub a${AssetInsightId}-${ProjectStack}-${MicroserviceName}-sg-${Environment}-${RegionShortName}
+      VpcId: !Ref VpcId
+      GroupDescription: !Ref SecurityGroupDescription
+      Tags:
+        - Key: 'tr:application-asset-insight-id'
+          Value: !Ref AssetInsightId
+        - Key: 'tr:financial-identifier'
+          Value: !Ref FinancialIdentifier
+        - Key: 'tr:environment-type'
+          Value: !Ref EnvironmentType
+        - Key: 'tr:resource-owner'
+          Value: !Ref ResourceOwner
+
+Outputs:
+  SecurityGroupId:
+    Description: "The Security Group Id"
+    Value: !GetAtt SecurityGroup.GroupId

@@ -1,0 +1,222 @@
+Description: Define a Task and deploy a Service to the existing ECS cluster.
+Parameters:
+  VpcId:
+    Description: The VPC that the ECS cluster is deployed to
+    Type: AWS::EC2::VPC::Id
+  ClusterName:
+    Description: Please provide the ECS Cluster Name that this service should run on
+    Type: String
+  ContainerName:
+    Description: Please provide a name for the container
+    Type: String
+  DatadogLogGroup:
+    Description: Please provide the Log Group for data dog logs to go to
+    Type: String
+  EcsServiceLogGroup:
+    Description: Please provide the Log Group for ECS logs to go to
+    Type: String
+  RepoName:
+    Description: Please provide a full Docker image name (including an URL to Registry if needed)
+    Type: String
+  ContainerPort:
+    Description: Please provide a port of the container which is exposed
+    Type: Number
+  ContainerMemory:
+    Description: Please provide a memory size that will be allocated for the container
+    Type: String
+  ContainerCpuUnits:
+    Description: Please provide the number of CPU units to reserve for the container
+    Type: String
+  ContainerDesiredCount:
+    Description: instances of this task we run across our cluster
+    Type: Number
+  ProjectStack:
+    Description: tr:project-stack
+    Type: String
+  ListenerArn:
+    Description: The Application Load Balancer HTTP Listener ARN to register with
+    Type: String
+  TargetGroupArn:
+    Description: The target group created with the load balancer
+    Type: String
+  ListenerRulePriority:
+    Description: The path to register with the Application Load Balancer
+    Type: Number
+  EcsSubnets:
+    Description: Choose which subnets the ECS service should be assigned to
+    Type: List<AWS::EC2::Subnet::Id>
+  LoadBalancerSecurityGroup:
+    Description: Security group of LoadBalancer
+    Type: AWS::EC2::SecurityGroup::Id
+  Environment:
+    Description: Environment used for spring profile
+    Type: String
+  Version:
+    Type: Number
+  AccountId:
+    Type: String
+  TaskRole:
+    Type: String
+  RegionShortName:
+    Description: "Region abbreviation"
+    Type: String
+
+  # TR required tags
+  EnvironmentType:
+    Description: "TR tag for tr:environment-type"
+    Type: String
+  FinancialIdentifier:
+    Description: "TR tag for tr:financial-identifier"
+    Type: String
+  AssetInsightId:
+    Description: "TR tag for tr:application-asset-insight-id"
+    Type: String
+  ResourceOwner:
+    Description: "TR tag for tr:resource-owner"
+    Type: String
+
+Resources:
+  Service:
+    Type: AWS::ECS::Service
+    Properties:
+      Cluster: !Ref ClusterName
+      DesiredCount: !Ref ContainerDesiredCount
+      TaskDefinition: !Ref TaskDefinition
+      LaunchType: "FARGATE"
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: DISABLED
+          Subnets: !Ref EcsSubnets
+          SecurityGroups:
+            - !Ref ContainerSecurityGroup
+      LoadBalancers:
+        - ContainerName: !Sub ${ContainerName}-service
+          ContainerPort: !Ref ContainerPort
+          TargetGroupArn: !Ref TargetGroupArn
+      ServiceName: !Sub a${AssetInsightId}-${ContainerName}-${ProjectStack}-service-${Environment}-v${Version}
+      HealthCheckGracePeriodSeconds: 360
+      PropagateTags: TASK_DEFINITION
+      Tags:
+        - Key: "tr:application-asset-insight-id"
+          Value:
+            Ref: "AssetInsightId"
+        - Key: "tr:financial-identifier"
+          Value:
+            Ref: "FinancialIdentifier"
+        - Key: "tr:environment-type"
+          Value:
+            Ref: "EnvironmentType"
+        - Key: "tr:resource-owner"
+          Value:
+            Ref: "ResourceOwner"
+        - Key: tr:service-name
+          Value: !Ref 'ContainerName'
+
+  # The Task Definition for the service.
+  TaskDefinition:
+    Type: AWS::ECS::TaskDefinition
+    Properties:
+      Family: !Sub a${AssetInsightId}-${ContainerName}-${Environment}-family
+      Cpu: !Ref ContainerCpuUnits
+      Memory: !Ref ContainerMemory
+      NetworkMode: awsvpc
+      ExecutionRoleArn: !Ref ExecutionRole
+      TaskRoleArn: !Ref TaskRole
+      RequiresCompatibilities:
+        - FARGATE
+      ContainerDefinitions:
+        - Name: !Sub ${ContainerName}-service
+          Essential: true
+          Image: !Sub 689314585043.dkr.ecr.${AWS::Region}.amazonaws.com/${RepoName}:${ContainerName}-${Environment}-${Version}
+          PortMappings:
+            - ContainerPort: !Ref ContainerPort
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-stream-prefix: ecs
+              awslogs-group: !Ref EcsServiceLogGroup
+              awslogs-region: !Ref AWS::Region
+          Environment:
+            - Name: SPRING_PROFILE
+              Value: !Ref Environment
+            - Name: VERSION
+              Value: !Ref Version
+
+        - Name: "datadog-agent"
+          Essential: true
+          Image: "datadog/agent:latest"
+          LogConfiguration:
+            LogDriver: awslogs
+            Options:
+              awslogs-stream-prefix: ecs
+              awslogs-group: !Ref DatadogLogGroup
+              awslogs-region: !Ref AWS::Region
+          Environment:
+            - Name: DD_LOGS_ENABLED
+              Value: "true"
+            - Name: ECS_FARGATE
+              Value: "true"
+            - Name: DD_PROCESS_AGENT_ENABLED
+              Value: "true"
+            - Name: DD_LOGS_CONFIG_CONTAINER_COLLECT_ALL
+              Value: "true"
+            - Name: DD_AC_EXCLUDE
+              Value: "name:datadog-agent"
+          Secrets:
+            - Name: DD_API_KEY
+              ValueFrom: !Sub /a205813/datadog/${Environment}/api-key
+      Tags:
+        - Key: "tr:application-asset-insight-id"
+          Value:
+            Ref: "AssetInsightId"
+        - Key: "tr:financial-identifier"
+          Value:
+            Ref: "FinancialIdentifier"
+        - Key: "tr:environment-type"
+          Value:
+            Ref: "EnvironmentType"
+        - Key: "tr:resource-owner"
+          Value:
+            Ref: "ResourceOwner"
+        - Key: tr:service-name
+          Value: !Ref 'ContainerName'
+
+  ExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub a${AssetInsightId}-${ContainerName}-${ProjectStack}-${Environment}-ecs-exec-${RegionShortName}-v${Version}
+      PermissionsBoundary: !Sub arn:aws:iam::${AccountId}:policy/tr-permission-boundary
+      AssumeRolePolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ecs-tasks.amazonaws.com
+            Action: 'sts:AssumeRole'
+      #      todo: make this more specific
+      ManagedPolicyArns:
+        - 'arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy'
+        - 'arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess'
+      Policies:
+        - PolicyName: 'GetSecretsFromSecretsManager'
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: "Allow"
+                Action:
+                  - "secretsmanager:GetSecretValue"
+                Resource: !Sub arn:aws:secretsmanager:${AWS::Region}:${AWS::AccountId}:secret:a${AssetInsightId}*
+
+  ContainerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: "Security group for the ECS container"
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          FromPort: !Ref ContainerPort
+          ToPort: !Ref ContainerPort
+          SourceSecurityGroupId: !Ref LoadBalancerSecurityGroup
+
+Outputs:
+  ECSService:
+    Value: !GetAtt Service.Name

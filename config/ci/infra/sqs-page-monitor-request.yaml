@@ -1,0 +1,20 @@
+template_path: templates/sqs-fifo-queue.yaml
+
+parameters:
+  Environment: {{ var.CiEnvShortName }}
+  EnvironmentFullName: {{ var.CiEnvFullName }}
+  AssetInsightId: "{{ var.AssetInsightId }}"
+  Region: {{ var.RegionShortName }}
+  ResourceOwner: {{ var.ResourceOwner }}
+  FinancialIdentifier: "{{ var.FinancialIdentifier }}"
+  ServiceName: {{ var.ServiceName }}
+  QueueName: "request"
+  SqsVisibilityTimeoutInSeconds: "300"
+  SqsDLQMaxReceiveCount: "1"
+  UseDeadLetterQueue: "true"
+
+stack_tags:
+  "tr:financial-identifier": "{{ var.FinancialIdentifier }}"
+  "tr:application-asset-insight-id": "{{ var.AssetInsightId }}"
+  "tr:environment-type": {{ var.CiEnvFullName }}
+  "tr:resource-owner": {{ var.ResourceOwner }}

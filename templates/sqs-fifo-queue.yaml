@@ -1,0 +1,100 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SQS Queue'
+Parameters:
+  Environment:
+    Type: String
+  EnvironmentFullName:
+    Type: String
+    Default: DEVELOPMENT
+  AssetInsightId:
+    Type: String
+    Default: 205813
+  Region:
+    Type: String
+    Default: use1
+  ResourceOwner:
+    Type: String
+  FinancialIdentifier:
+    Type: String
+    Default: 66497
+  ServiceName:
+    Type: String
+    Default: pagemonitor
+  QueueName:
+    Type: String
+  SqsVisibilityTimeoutInSeconds:
+    Description: Timeout used for SQS queue
+    Type: String
+    Default: 30
+  SqsDLQMaxReceiveCount:
+    Description: Max Recieve count before the message will go to DLQ
+    Type: String
+    Default: 3
+  UseDeadLetterQueue:
+    Description: Use DLQ
+    Type: String
+    Default: false
+Conditions:
+  CreateDeadLetterQueue: !Equals [!Ref 'UseDeadLetterQueue', "true"]
+
+
+Resources:
+  SQSQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub a${AssetInsightId}-${ServiceName}-${QueueName}-${Environment}-${Region}.fifo
+      FifoQueue: 'true'
+      ContentBasedDeduplication: 'true'
+      VisibilityTimeout: !Ref 'SqsVisibilityTimeoutInSeconds'
+      RedrivePolicy:
+        !If
+        - CreateDeadLetterQueue
+        - deadLetterTargetArn:
+           !GetAtt
+            - DeadLetterQueue
+            - Arn
+          maxReceiveCount: !Ref 'SqsDLQMaxReceiveCount'
+        - !Ref 'AWS::NoValue'
+      Tags:
+        - Key: tr:application-asset-insight-id
+          Value: !Ref 'AssetInsightId'
+        - Key: tr:financial-identifier
+          Value: !Ref 'FinancialIdentifier'
+        - Key: tr:resource-owner
+          Value: !Ref 'ResourceOwner'
+        - Key: tr:environment-type
+          Value: !Ref 'EnvironmentFullName'
+        - Key: tr:service-name
+          Value: !Ref 'ServiceName'
+  DeadLetterQueue:
+    Condition: CreateDeadLetterQueue
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: !Sub a${AssetInsightId}-${ServiceName}-${QueueName}_dlq-${Environment}-${Region}.fifo
+      FifoQueue: 'true'
+      ContentBasedDeduplication: 'true'
+      VisibilityTimeout: !Ref 'SqsVisibilityTimeoutInSeconds'
+      Tags:
+        - Key: tr:application-asset-insight-id
+          Value: !Ref 'AssetInsightId'
+        - Key: tr:financial-identifier
+          Value: !Ref 'FinancialIdentifier'
+        - Key: tr:resource-owner
+          Value: !Ref 'ResourceOwner'
+        - Key: tr:environment-type
+          Value: !Ref 'EnvironmentFullName'
+        - Key: tr:service-name
+          Value: !Ref 'ServiceName'
+        - Key: tr:dead-letter-queue
+          Value: "true"
+
+Outputs:
+  QueueName:
+    Description: 'Name of SQS Queue'
+    Value: !GetAtt SQSQueue.QueueName
+  QueueArn:
+    Description: 'Arn of SQS Queue'
+    Value: !GetAtt SQSQueue.Arn
+  SQSQueue:
+    Description: 'Full sqs queue ref'
+    Value: !Ref SQSQueue

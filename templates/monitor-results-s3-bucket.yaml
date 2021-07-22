@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'S3 bucket used to store big (> 256Kb) delivery result messages'
+Parameters:
+  Environment:
+    Type: String
+  EnvironmentFullName:
+    Type: String
+    Default: DEVELOPMENT
+  AssetInsightId:
+    Type: String
+    Default: 205813
+  Region:
+    Type: String
+    Default: use1
+  ResourceOwner:
+    Type: String
+  FinancialIdentifier:
+    Type: String
+    Default: 66497
+  ServiceName:
+    Type: String
+    Default: pagemonitor
+
+Resources:
+  ResourceBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub a${AssetInsightId}-${ServiceName}-results-${Environment}-${Region}
+      Tags:
+        - Key: tr:application-asset-insight-id
+          Value: !Ref 'AssetInsightId'
+        - Key: tr:financial-identifier
+          Value: !Ref 'FinancialIdentifier'
+        - Key: tr:resource-owner
+          Value: !Ref 'ResourceOwner'
+        - Key: tr:environment-type
+          Value: !Ref 'EnvironmentFullName'
+        - Key: tr:service-name
+          Value: !Ref 'ServiceName'
+
+Outputs:
+  BucketName:
+    Description: 'Name of S3 Resource Bucket'
+    Value: !Ref ResourceBucket

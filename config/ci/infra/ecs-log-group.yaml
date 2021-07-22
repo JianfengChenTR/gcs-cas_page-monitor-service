@@ -1,0 +1,14 @@
+template_path: templates/cloudwatch-log-group.yaml
+
+parameters:
+  ContainerName: {{ var.MicroserviceName }}
+  ProjectStack: {{ var.ProjectStack }}
+  Environment: {{ var.CiEnvShortName }}
+  LogType: "ecs"
+  AssetInsightId: "{{ var.AssetInsightId }}"
+
+stack_tags:
+  "tr:financial-identifier": "{{ var.FinancialIdentifier }}"
+  "tr:application-asset-insight-id": "{{ var.AssetInsightId }}"
+  "tr:environment-type": {{ var.CiEnvFullName }}
+  "tr:resource-owner": {{ var.ResourceOwner }}

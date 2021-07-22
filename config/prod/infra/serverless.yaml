@@ -1,0 +1,16 @@
+template_path: templates/packaged-sam-template.yaml
+
+parameters:
+  ServiceName: {{ var.ServiceName }}
+  Environment: {{ var.ProdEnvShortName }}
+  FinancialIdentifier: "{{ var.FinancialIdentifier }}"
+  AssetInsightId: "{{ var.AssetInsightId }}"
+  ResourceOwner: {{ var.ResourceOwner }}
+  EnvironmentFullName: {{ var.ProdEnvFullName }}
+  Region: {{ var.RegionShortName }}
+
+stack_tags:
+  "tr:financial-identifier": "{{ var.FinancialIdentifier }}"
+  "tr:application-asset-insight-id": "{{ var.AssetInsightId }}"
+  "tr:environment-type": {{ var.ProdEnvFullName }}
+  "tr:resource-owner": {{ var.ResourceOwner }}

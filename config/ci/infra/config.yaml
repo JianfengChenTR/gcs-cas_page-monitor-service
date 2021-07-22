@@ -1,0 +1,2 @@
+stage_type: cloudformation
+iam_role: arn:aws:iam::732776733977:role/human-role/a205813-PowerUser2

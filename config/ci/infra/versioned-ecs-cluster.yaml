@@ -1,0 +1,14 @@
+template_path: templates/versioned-ecs-cluster.yaml
+
+parameters:
+  AssetInsightId: "{{ var.AssetInsightId }}"
+  Version:
+  MicroserviceName: {{ var.MicroserviceName }}
+  Env: {{ var.CiEnvShortName }}
+
+stack_tags:
+  "tr:financial-identifier": "{{ var.FinancialIdentifier }}"
+  "tr:application-asset-insight-id": "{{ var.AssetInsightId }}"
+  "tr:environment-type": {{ var.CiEnvFullName }}
+  "tr:resource-owner": {{ var.ResourceOwner }}
+  "tr:service-name": {{ var.MicroserviceName }}

@@ -1,0 +1,29 @@
+Description: Create a log group for all versions of an ecs service
+Parameters:
+  ContainerName:
+    Description: Please provide a name for the container
+    Type: String
+  ProjectStack:
+    Description: tr:project-stack
+    Type: String
+  Environment:
+    Description: Environment used for spring profile
+    Type: String
+  LogType:
+    Description: Type of logs that will be pushed to this log group
+    Type: String
+  AssetInsightId:
+    Description: Asset Insight Id
+    Type: String
+
+Resources:
+  CloudWatchLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub a${AssetInsightId}-${ContainerName}-${ProjectStack}-${Environment}-${LogType}-logs
+      RetentionInDays: 365
+
+Outputs:
+  CloudWatchLogsGroup:
+    Description: 'Cloudwatch Log Group resource'
+    Value: !Ref CloudWatchLogsGroup

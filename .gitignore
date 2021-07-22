@@ -1,0 +1,15 @@
+# log files
+*.log*
+config/local-*
+local_variables_*.yaml
+.idea
+__pycache__
+**/properties-local*.ini
+venv
+.venv
+.aws-sam/**
+templates/packaged-sam-template.yaml
+
+# local build files
+local-/**
+local_variables_*.yaml

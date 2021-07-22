@@ -1,0 +1,13 @@
+boto3==1.12.39
+python-json-logger==0.1.11
+requests==2.22.0
+gcs-common==3.0.0
+dataclasses-json==0.5.2
+gcs-jsonlogger==0.6.0
+gcs-cpclient==1.0.0
+retry==0.9.2
+requests_mock==1.7.0
+paramiko==2.7.1
+pymqi==1.10.1
+Office365-REST-Python-Client==2.3.3
+jsonpath-ng==1.5.2

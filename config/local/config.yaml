@@ -1,0 +1,8 @@
+dryrun_enabled: false
+environment_type: DEVELOPMENT
+iam_role: arn:aws:iam::732776733977:role/human-role/a205813-PowerUser2
+notification_emails:
+  - Publishing-OpsCloudServices@thomsonreuters.com
+  - jianfeng.chen@thomsonreuters.com
+stage_order:
+  - infra

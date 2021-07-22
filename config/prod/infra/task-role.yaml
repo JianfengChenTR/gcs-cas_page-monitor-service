@@ -1,0 +1,18 @@
+template_path: templates/task-role.yaml
+
+parameters:
+  ProjectStack: {{ var.ProjectStack }}
+  ServiceName: {{ var.MicroserviceName }}
+  Environment: {{ var.ProdEnvShortName }}
+  AssetInsightId: "{{ var.AssetInsightId }}"
+  FinancialIdentifier: "{{ var.FinancialIdentifier }}"
+  ResourceOwner: {{ var.ResourceOwner }}
+  EnvironmentType: {{ var.ProdEnvFullName }}
+  RegionShortName: {{ var.RegionShortName }}
+  AccountId: "{{ var.ProdAccountId }}"
+
+stack_tags:
+  "tr:financial-identifier": "{{ var.FinancialIdentifier }}"
+  "tr:application-asset-insight-id": "{{ var.AssetInsightId }}"
+  "tr:environment-type": {{ var.ProdEnvFullName }}
+  "tr:resource-owner": {{ var.ResourceOwner }}
